@@ -1,8 +1,27 @@
 import subprocess
 import os
+import sys
 
 def create_sumo_files():
-    print("Generating SUMO network using netconvert...")
+    # --- AUTO-DISCOVER SUMO ---
+    if 'SUMO_HOME' not in os.environ:
+        standard_paths = [
+            r"C:\Program Files (x86)\Eclipse\Sumo",
+            r"C:\Program Files\Eclipse\Sumo",
+            r"C:\Sumo"
+        ]
+        for path in standard_paths:
+            if os.path.exists(path):
+                os.environ['SUMO_HOME'] = path
+                break
+
+    if 'SUMO_HOME' in os.environ:
+        netconvert_bin = os.path.join(os.environ['SUMO_HOME'], 'bin', 'netconvert')
+    else:
+        print("Error: Could not find SUMO installation. Please set SUMO_HOME.")
+        return
+
+    print(f"Generating SUMO network using {netconvert_bin}...")
     
     # 1. Create Nodes file (.nod.xml)
     with open("map.nod.xml", "w") as f:
@@ -29,7 +48,7 @@ def create_sumo_files():
 
     # 3. Build the Network (.net.xml)
     try:
-        subprocess.run(["netconvert", "--node-files=map.nod.xml", "--edge-files=map.edg.xml", "--output-file=map.net.xml"], check=True)
+        subprocess.run([netconvert_bin, "--node-files=map.nod.xml", "--edge-files=map.edg.xml", "--output-file=map.net.xml"], check=True)
         print("Successfully created map.net.xml")
     except Exception as e:
         print(f"Error: {e}. Make sure SUMO 'bin' is in your PATH.")
