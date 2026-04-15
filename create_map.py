@@ -4,7 +4,6 @@ import os
 def create_sumo_files():
     print("Generating SUMO network using netconvert...")
     
-    # 1. Create Nodes file (.nod.xml)
     with open("map.nod.xml", "w") as f:
         f.write("""<nodes>
     <node id="center" x="0" y="0" type="traffic_light"/>
@@ -14,7 +13,6 @@ def create_sumo_files():
     <node id="right" x="100" y="0" type="priority"/>
 </nodes>""")
 
-    # 2. Create Edges file (.edg.xml)
     with open("map.edg.xml", "w") as f:
         f.write("""<edges>
     <edge id="t2c" from="top" to="center" priority="1" numLanes="1" speed="13.89"/>
@@ -27,14 +25,12 @@ def create_sumo_files():
     <edge id="c2r" from="center" to="right" priority="1" numLanes="1" speed="13.89"/>
 </edges>""")
 
-    # 3. Build the Network (.net.xml)
     try:
         subprocess.run(["netconvert", "--node-files=map.nod.xml", "--edge-files=map.edg.xml", "--output-file=map.net.xml"], check=True)
         print("Successfully created map.net.xml")
     except Exception as e:
         print(f"Error: {e}. Make sure SUMO 'bin' is in your PATH.")
 
-    # 4. Create Routes file (.rou.xml)
     with open("traffic.rou.xml", "w") as f:
         f.write("""<routes>
     <vType id="car" accel="1.0" decel="4.5" length="5.0" maxSpeed="15.0" />

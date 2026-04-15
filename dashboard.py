@@ -6,15 +6,13 @@ import time
 import subprocess
 import sys
 
-# --- PAGE CONFIG ---
 st.set_page_config(
     page_title="Multi-Agent RL Dashboard",
     page_icon="🚥",
     layout="wide",
-    initial_sidebar_state="collapsed" # Better for single page
+    initial_sidebar_state="collapsed"
 )
 
-# --- ADVANCED PREMIUM CSS (DARK GLASSMORPHISM) ---
 st.markdown("""
 <style>
     /* Hide top right Streamlit menus */
@@ -101,7 +99,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Main Dashboard Header
 st.markdown("""
 <div class="hero-header">
     <h1 style="color: white !important; font-size: 45px; margin-bottom: 5px;">🚥 Advanced AI Traffic Network</h1>
@@ -109,7 +106,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Controls Layout
 colA, colB, colC = st.columns([1, 1, 2])
 with colA:
     if st.button("🚀 INITIATE AI SIMULATION"):
@@ -126,7 +122,6 @@ with colB:
 
 st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
 
-# Data Display Logic
 log_file = "training_log.csv"
 placeholder = st.empty()
 
@@ -140,18 +135,25 @@ if os.path.exists(log_file):
             with m1:
                 st.markdown(f"<div class='stat-box'><div class='stat-value'>{int(df['step'].iloc[-1])}</div><div class='stat-label'>Neural Step Count</div></div>", unsafe_allow_html=True)
             with m2:
-                # Custom color logic for queue
                 q_val = df['queue_length'].iloc[-1]
                 q_color = "#34d399" if q_val < 5 else ("#fbbf24" if q_val < 15 else "#f87171")
                 st.markdown(f"<div class='stat-box'><div class='stat-value' style='color: {q_color};'>{q_val:.0f}</div><div class='stat-label'>Cars Waiting (Queue)</div></div>", unsafe_allow_html=True)
             with m3:
                 spd = df['avg_speed'].iloc[-1] if 'avg_speed' in df.columns else 0.0
                 st.markdown(f"<div class='stat-box'><div class='stat-value'>{spd:.1f} m/s</div><div class='stat-label'>Network Average Speed</div></div>", unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            n1, n2 = st.columns(2)
+            with n1:
+                pg = df['passed_green'].iloc[-1] if 'passed_green' in df.columns else 0
+                st.markdown(f"<div class='stat-box' style='border-left-color: #10b981;'><div class='stat-value' style='color: #10b981;'>{pg}</div><div class='stat-label'>Vehicles Passed (Green)</div></div>", unsafe_allow_html=True)
+            with n2:
+                py = df['passed_yellow'].iloc[-1] if 'passed_yellow' in df.columns else 0
+                st.markdown(f"<div class='stat-box' style='border-left-color: #facc15;'><div class='stat-value' style='color: #facc15;'>{py}</div><div class='stat-label'>Vehicles Passed (Yellow)</div></div>", unsafe_allow_html=True)
 
             st.markdown("<br><h3 style='color: #38bdf8 !important;'>📊 AI Optimization Telemetry</h3>", unsafe_allow_html=True)
             
-            # Setup dark theme for Altair
-            # Background transparent so it blends with glassmorphism
+           
             c1, c2 = st.columns(2)
             
             with c1:
@@ -180,17 +182,27 @@ if os.path.exists(log_file):
                 
                 st.altair_chart(chart_r, use_container_width=True)
             
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("** Signal Throughput Analytics (Passed on Green vs Yellow)**")
+            
+            df_melted = df.tail(200).melt(id_vars=['step'], value_vars=['passed_green', 'passed_yellow'], var_name='Metric', value_name='Count')
+            
+            chart_t = alt.Chart(df_melted).mark_line(strokeWidth=3).encode(
+                x=alt.X('step:Q', title="Processing Tick", axis=alt.Axis(grid=False, labelColor='#94a3b8', titleColor='#cbd5e1')),
+                y=alt.Y('Count:Q', title="Cumulative Vehicles", axis=alt.Axis(gridColor='rgba(255,255,255,0.1)', labelColor='#94a3b8', titleColor='#cbd5e1')),
+                color=alt.Color('Metric:N', scale=alt.Scale(domain=['passed_green', 'passed_yellow'], range=['#10b981', '#facc15']))
+            ).properties(height=300).configure_view(strokeWidth=0).configure_axis(domain=False)
+            
+            st.altair_chart(chart_t, use_container_width=True)
+            
             st.markdown("<br><h3 style='color: #10b981 !important;'>🚦 Live Signal Intelligent Switches</h3>", unsafe_allow_html=True)
             st.markdown("<p style='color:#cbd5e1; font-size:15px;'>Real-time log of the AI Engine deciding precisely how many seconds to hold the Green Light based on the exact number of cars waiting.</p>", unsafe_allow_html=True)
             
-            # Read and display signal logs on UI!
             if os.path.exists("signal_changes.txt"):
                 try:
                     with open("signal_changes.txt", "r") as f:
                         lines = f.readlines()
-                        # Show last 15 lines
                         recent_logs = lines[-15:] if len(lines) > 15 else lines
-                        # Reverse to show newest first, format each line explicitly
                         log_lines = []
                         for line in recent_logs[::-1]:
                             if line.strip():
@@ -213,7 +225,7 @@ if os.path.exists(log_file):
         else:
             placeholder.info("Loading Telemetry...")
     except BaseException as e:
-        pass # Suppress rapid-read exceptions
+        pass
 else:
     placeholder.markdown("""
     <div class="premium-card" style="text-align: center; margin-top: 50px;">
@@ -222,7 +234,6 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-# Refresh page auto for live data
 time.sleep(2)
 try:
     st.rerun()

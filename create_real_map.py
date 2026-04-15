@@ -4,13 +4,11 @@ import urllib.request
 
 def download_osm_map(bbox, filename="salem_map.osm"):
     """Downloads a real map from OpenStreetMap based on a bounding box."""
-    # Bounding box coordinates
     min_lat, min_lon, max_lat, max_lon = bbox
     
     print(f"Downloading Salem Real Map Data from OpenStreetMap...")
     print(f"Location: Five Roads Junction, Salem (BBox: {bbox})")
     
-    # Use main OSM API instead of Overpass to avoid timeouts
     osm_url = f"https://api.openstreetmap.org/api/0.6/map?bbox={min_lon},{min_lat},{max_lon},{max_lat}"
     
     try:
@@ -25,7 +23,6 @@ def generate_sumo_network(osm_file="salem_map.osm", net_file="map.net.xml"):
     """Converts the OSM map into a SUMO network simulation format."""
     print("Converting OpenStreetMap to SUMO Network...")
     try:
-        # We run netconvert to extract roads, junctions, and traffic lights
         subprocess.run([
             "netconvert", 
             "--osm-files", osm_file, 
@@ -58,18 +55,16 @@ def generate_traffic_routes(net_file="map.net.xml", route_file="traffic.rou.xml"
     random_trips_script = os.path.join(os.environ['SUMO_HOME'], 'tools', 'randomTrips.py')
     
     try:
-        # Generate continuous random trips for 1 hour (3600 seconds)
-        # -p 1.5 means roughly one new distinct vehicle every 1.5 seconds
         subprocess.run([
             "python", random_trips_script,
             "-n", net_file,
             "-r", route_file,
             "-e", "3600",
-            "-p", "1.5",
+            "-p", "1.0",
             "--vehicle-class", "passenger",
             "--vclass", "passenger",
             "--prefix", "veh",
-            "--min-distance", "50", # Ensure trips aren't too short
+            "--min-distance", "50",
             "--trip-attributes", 'departLane="best" departSpeed="max" departPos="random"'
         ], check=True)
         print(f"[SUCCESS] Successfully generated traffic routes: {route_file}\n")
@@ -79,8 +74,6 @@ def generate_traffic_routes(net_file="map.net.xml", route_file="traffic.rou.xml"
         return False
 
 def setup_salem_map():
-    # Bounding box for a major traffic junction in Salem: Five Roads Junction
-    # Using roughly (Lat: 11.670, Lon: 78.138) to (Lat: 11.677, Lon: 78.146)
     salem_bbox = (11.6700, 78.1380, 11.6770, 78.1460)
     
     success = download_osm_map(salem_bbox)
