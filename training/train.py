@@ -22,10 +22,13 @@ class DashboardCallback(BaseCallback):
         self.log_file = "training_log.csv"
         self.tls_ids = tls_ids if tls_ids else []
         
-        # Prepare columns: global metrics + per-junction queues
-        columns = ["step", "reward", "queue_length", "avg_speed", "throughput", "total_co2", "passed_green", "passed_yellow"]
+        # Prepare columns: global metrics + per-junction stats
+        columns = ["step", "reward", "queue_length", "avg_speed", "throughput", "total_co2"]
         for i in range(len(self.tls_ids)):
             columns.append(f"tls_{i}_queue")
+            columns.append(f"tls_{i}_green")
+            columns.append(f"tls_{i}_yellow")
+            columns.append(f"tls_{i}_red")
             
         pd.DataFrame(columns=columns).to_csv(self.log_file, index=False)
         open("signal_changes.txt", "w").close()
@@ -36,21 +39,23 @@ class DashboardCallback(BaseCallback):
             info = self.locals['infos'][0]
             queue_length = info.get("total_queue", 0)
             junction_queues = info.get("junction_queues", {})
+            per_junction_stats = info.get("per_junction_stats", {})
             
             stats = sumo_utils.get_global_stats()
             avg_speed = stats.get("avg_speed", 0.0)
             throughput = stats.get("throughput", 0)
             total_co2 = stats.get("total_co2", 0.0)
             
-            passed_green = info.get("passed_green", 0)
-            passed_yellow = info.get("passed_yellow", 0)
-            
-            print(f"Step {self.num_timesteps} | Reward: {reward:.2f} | Queue: {queue_length:.1f} | Green: {passed_green} | Yellow: {passed_yellow}")
+            print(f"Step {self.num_timesteps} | Reward: {reward:.2f} | Total Queue: {queue_length:.1f}")
             
             # Prepare data row
-            row = [self.num_timesteps, reward, queue_length, avg_speed, throughput, total_co2, passed_green, passed_yellow]
+            row = [self.num_timesteps, reward, queue_length, avg_speed, throughput, total_co2]
             for tls_id in self.tls_ids:
                 row.append(junction_queues.get(tls_id, 0.0))
+                stats_j = per_junction_stats.get(tls_id, {"green": 0, "yellow": 0, "red": 0})
+                row.append(stats_j["green"])
+                row.append(stats_j["yellow"])
+                row.append(stats_j["red"])
             
             new_data = pd.DataFrame([row])
             try:

@@ -143,13 +143,19 @@ if os.path.exists(log_file):
                 st.markdown(f"<div class='stat-box'><div class='stat-value'>{spd:.1f} m/s</div><div class='stat-label'>Network Average Speed</div></div>", unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            n1, n2 = st.columns(2)
+            n1, n2, n3 = st.columns(3)
             with n1:
-                pg = df['passed_green'].iloc[-1] if 'passed_green' in df.columns else 0
-                st.markdown(f"<div class='stat-box' style='border-left-color: #10b981;'><div class='stat-value' style='color: #10b981;'>{pg}</div><div class='stat-label'>Vehicles Passed (Green)</div></div>", unsafe_allow_html=True)
+                # Sum of all junction green passes
+                pg = sum(df[c].iloc[-1] for c in df.columns if "_green" in c)
+                st.markdown(f"<div class='stat-box' style='border-left-color: #10b981;'><div class='stat-value' style='color: #10b981;'>{int(pg)}</div><div class='stat-label'>Vehicles Passed (Green)</div></div>", unsafe_allow_html=True)
             with n2:
-                py = df['passed_yellow'].iloc[-1] if 'passed_yellow' in df.columns else 0
-                st.markdown(f"<div class='stat-box' style='border-left-color: #facc15;'><div class='stat-value' style='color: #facc15;'>{py}</div><div class='stat-label'>Vehicles Passed (Yellow)</div></div>", unsafe_allow_html=True)
+                # Sum of all junction yellow passes
+                py = sum(df[c].iloc[-1] for c in df.columns if "_yellow" in c)
+                st.markdown(f"<div class='stat-box' style='border-left-color: #facc15;'><div class='stat-value' style='color: #facc15;'>{int(py)}</div><div class='stat-label'>Vehicles Passed (Yellow)</div></div>", unsafe_allow_html=True)
+            with n3:
+                # Sum of all junction red violations
+                pr = sum(df[c].iloc[-1] for c in df.columns if "_red" in c)
+                st.markdown(f"<div class='stat-box' style='border-left-color: #ef4444;'><div class='stat-value' style='color: #ef4444;'>{int(pr)}</div><div class='stat-label'>Red Light Violations</div></div>", unsafe_allow_html=True)
 
             st.markdown("<br><h3 style='color: #38bdf8 !important;'>📊 AI Optimization Telemetry</h3>", unsafe_allow_html=True)
             
@@ -207,16 +213,48 @@ if os.path.exists(log_file):
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("** Signal Throughput Analytics (Passed on Green vs Yellow)**")
             
-            df_melted = df.tail(200).melt(id_vars=['step'], value_vars=['passed_green', 'passed_yellow'], var_name='Metric', value_name='Count')
+            # Create aggregated columns for the global chart
+            df['total_green'] = sum(df[c] for c in df.columns if "_green" in c)
+            df['total_yellow'] = sum(df[c] for c in df.columns if "_yellow" in c)
+            
+            df_melted = df.tail(200).melt(id_vars=['step'], value_vars=['total_green', 'total_yellow'], var_name='Metric', value_name='Count')
             
             chart_t = alt.Chart(df_melted).mark_line(strokeWidth=3).encode(
                 x=alt.X('step:Q', title="Processing Tick", axis=alt.Axis(grid=False, labelColor='#94a3b8', titleColor='#cbd5e1')),
                 y=alt.Y('Count:Q', title="Cumulative Vehicles", axis=alt.Axis(gridColor='rgba(255,255,255,0.1)', labelColor='#94a3b8', titleColor='#cbd5e1')),
-                color=alt.Color('Metric:N', scale=alt.Scale(domain=['passed_green', 'passed_yellow'], range=['#10b981', '#facc15']))
+                color=alt.Color('Metric:N', scale=alt.Scale(domain=['total_green', 'total_yellow'], range=['#10b981', '#facc15']))
             ).properties(height=300).configure_view(strokeWidth=0).configure_axis(domain=False)
             
             st.altair_chart(chart_t, use_container_width=True)
             
+            # --- NEW PER-JUNCTION ANALYTICS CARDS ---
+            st.markdown("<br><h3 style='color: #38bdf8 !important;'>📍 Individual Agent Performance</h3>", unsafe_allow_html=True)
+            
+            # Find how many agents we have
+            agent_count = 0
+            while f"tls_{agent_count}_queue" in df.columns:
+                agent_count += 1
+            
+            # Create columns for cards
+            cols = st.columns(agent_count)
+            for i in range(agent_count):
+                with cols[i]:
+                    st.markdown(f"""
+                    <div class="premium-card" style="padding: 20px; border-top: 5px solid #8b5cf6;">
+                        <h4 style="margin-top:0; color:#8b5cf6;">Agent Junction {i}</h4>
+                        <div style="font-size: 28px; font-weight: 800; color: #bae6fd;">{df[f'tls_{i}_queue'].iloc[-1]:.0f}</div>
+                        <div class='stat-label'>Vehicles Waiting</div>
+                        <hr style="opacity: 0.1; margin: 15px 0;">
+                        <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                            <span style="color: #10b981;">🟢 Passed: {int(df[f'tls_{i}_green'].iloc[-1])}</span>
+                            <span style="color: #facc15;">🟡 Caution: {int(df[f'tls_{i}_yellow'].iloc[-1])}</span>
+                        </div>
+                        <div style="margin-top: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; text-align: center;">
+                            <span style="color: #f87171; font-weight: 700; font-size: 13px;">🚩 Red Violations: {int(df[f'tls_{i}_red'].iloc[-1])}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
             st.markdown("<br><h3 style='color: #10b981 !important;'>🚦 Live Signal Intelligent Switches</h3>", unsafe_allow_html=True)
             st.markdown("<p style='color:#cbd5e1; font-size:15px;'>Real-time log of the AI Engine deciding precisely how many seconds to hold the Green Light based on the exact number of cars waiting.</p>", unsafe_allow_html=True)
             

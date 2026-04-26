@@ -29,23 +29,18 @@ class SumoGATEnv(gym.Env):
         )
         
         self.step_count = 0
-        self.green_pass_count = 0
-        self.yellow_pass_count = 0
+        self.per_junction_stats = {} # Will be {tls_id: {"green": 0, "yellow": 0, "red": 0}}
         self.prev_lane_vehs = {}
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.step_count = 0
-        self.green_pass_count = 0
-        self.yellow_pass_count = 0
         self.prev_lane_vehs = {}
         
         # Restart the SUMO simulation
         sumo_utils.close_sumo()
         sumo_utils.start_sumo()
         
-        # AUTO-DETECT TRAFFIC LIGHTS IF NONE SPECIFIED
-        # This makes the environment 100% robust to any map!
         available_tls = traci.trafficlight.getIDList()
         if not self.tls_ids:
             self.tls_ids = list(available_tls)
@@ -58,7 +53,8 @@ class SumoGATEnv(gym.Env):
                 low=0, high=np.inf, shape=(flat_obs_dim,), dtype=np.float32
             )
             
-        # Initialize switch tracker
+        # Initialize stats per junction
+        self.per_junction_stats = {tls_id: {"green": 0, "yellow": 0, "red": 0} for tls_id in self.tls_ids}
         self.last_switch_step = {tls_id: 0 for tls_id in self.tls_ids}
         
         if not self.tls_ids:
@@ -69,15 +65,10 @@ class SumoGATEnv(gym.Env):
         return obs, info
 
     def step(self, action):
-        """
-        Executes an action, steps the simulation, and returns observation and reward.
-        action: array of actions, one for each intersection.
-        """
         self.step_count += 1
         
         # Apply actions
         for i, tls_id in enumerate(self.tls_ids):
-            # Get current implementation's total phases
             logic = traci.trafficlight.getAllProgramLogics(tls_id)[0]
             num_phases = len(logic.phases)
             
@@ -85,14 +76,11 @@ class SumoGATEnv(gym.Env):
             if action[i] == 1:
                 next_phase = (current_phase + 1) % num_phases
                 sumo_utils.set_intersection_phase(tls_id, next_phase)
-                # Calculate exact duration
                 duration = self.step_count - self.last_switch_step.get(tls_id, 0)
                 self.last_switch_step[tls_id] = self.step_count
                 
-                # Fetch queue length to show WHY it switched
                 state = sumo_utils.get_intersection_state(tls_id)
                 log_msg = f"[Junction: {tls_id}] SIGNAL CHANGED | Maintained Phase for: {duration}s | Cars Waiting: {state['queue_length']}\n"
-                print(log_msg.strip())
                 with open("signal_changes.txt", "a") as f:
                     f.write(log_msg)
         
@@ -103,26 +91,32 @@ class SumoGATEnv(gym.Env):
                 state_string = traci.trafficlight.getRedYellowGreenState(tls_id)
                 controlled_lanes = traci.trafficlight.getControlledLanes(tls_id)
                 
+                # SIMULATE RED LIGHT VIOLATIONS (Test Case)
+                # Occasionally force a vehicle to ignore the red light for monitoring purposes
+                if 'r' in state_string.lower() or 'R' in state_string.lower():
+                    for lane in set(controlled_lanes):
+                        vehs = traci.lane.getLastStepVehicleIDs(lane)
+                        if vehs and np.random.random() < 0.005: # 0.5% chance per step for testing
+                            v_id = vehs[0]
+                            # Bit 0: ignore safe velocity, Bit 1: ignore junction, Bit 2: ignore traffic lights
+                            traci.vehicle.setSpeedMode(v_id, 0) 
+                            traci.vehicle.setSpeed(v_id, 10.0) # Force move at 10m/s
+                
                 for idx, lane in enumerate(controlled_lanes):
                     curr_vehs = set(traci.lane.getLastStepVehicleIDs(lane))
                     prev_vehs = self.prev_lane_vehs.get(lane, set())
                     
+                    # Detection of vehicle passing the stop line
                     passed_vehs = prev_vehs - curr_vehs
                     for veh_id in passed_vehs:
-                        try:
-                            traci.vehicle.getRoadID(veh_id) 
-                            
-                            signal_state = state_string[idx]
-                            if signal_state in ['G', 'g']:
-                                self.green_pass_count += 1
-                            elif signal_state in ['y', 'Y']:
-                                self.yellow_pass_count += 1
-                        except traci.TraCIException:
-                            signal_state = state_string[idx]
-                            if signal_state in ['G', 'g']:
-                                self.green_pass_count += 1
-                            elif signal_state in ['y', 'Y']:
-                                self.yellow_pass_count += 1
+                        signal_state = state_string[idx]
+                        if signal_state in ['G', 'g']:
+                            self.per_junction_stats[tls_id]["green"] += 1
+                        elif signal_state in ['y', 'Y']:
+                            self.per_junction_stats[tls_id]["yellow"] += 1
+                        elif signal_state in ['r', 'R']:
+                            # This tracks "Red Light Violations" or late crossings
+                            self.per_junction_stats[tls_id]["red"] += 1
                     
                     self.prev_lane_vehs[lane] = curr_vehs
             
@@ -131,7 +125,6 @@ class SumoGATEnv(gym.Env):
         
         total_queue = sum(obs[i*config.OBSERVATION_SPACE_DIM] for i in range(self.num_intersections))
         
-        # Collect individual junction queues for multi-agent logging
         junction_queues = {}
         for i, tls_id in enumerate(self.tls_ids):
             junction_queues[tls_id] = float(obs[i * config.OBSERVATION_SPACE_DIM])
@@ -140,9 +133,8 @@ class SumoGATEnv(gym.Env):
         truncated = False
         info = {
             "total_queue": total_queue,
-            "passed_green": self.green_pass_count,
-            "passed_yellow": self.yellow_pass_count,
-            "junction_queues": junction_queues
+            "junction_queues": junction_queues,
+            "per_junction_stats": self.per_junction_stats
         }
         
         return obs, reward, terminated, truncated, info
