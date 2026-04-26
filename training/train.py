@@ -17,10 +17,17 @@ class DashboardCallback(BaseCallback):
     """
     Log metrics to a CSV for the Streamlit dashboard.
     """
-    def __init__(self, verbose=0):
+    def __init__(self, tls_ids=None, verbose=0):
         super(DashboardCallback, self).__init__(verbose)
         self.log_file = "training_log.csv"
-        pd.DataFrame(columns=["step", "reward", "queue_length", "avg_speed", "throughput", "total_co2", "passed_green", "passed_yellow"]).to_csv(self.log_file, index=False)
+        self.tls_ids = tls_ids if tls_ids else []
+        
+        # Prepare columns: global metrics + per-junction queues
+        columns = ["step", "reward", "queue_length", "avg_speed", "throughput", "total_co2", "passed_green", "passed_yellow"]
+        for i in range(len(self.tls_ids)):
+            columns.append(f"tls_{i}_queue")
+            
+        pd.DataFrame(columns=columns).to_csv(self.log_file, index=False)
         open("signal_changes.txt", "w").close()
 
     def _on_step(self) -> bool:
@@ -28,6 +35,7 @@ class DashboardCallback(BaseCallback):
             reward = self.locals['rewards'][0]
             info = self.locals['infos'][0]
             queue_length = info.get("total_queue", 0)
+            junction_queues = info.get("junction_queues", {})
             
             stats = sumo_utils.get_global_stats()
             avg_speed = stats.get("avg_speed", 0.0)
@@ -39,10 +47,12 @@ class DashboardCallback(BaseCallback):
             
             print(f"Step {self.num_timesteps} | Reward: {reward:.2f} | Queue: {queue_length:.1f} | Green: {passed_green} | Yellow: {passed_yellow}")
             
-            new_data = pd.DataFrame(
-                [[self.num_timesteps, reward, queue_length, avg_speed, throughput, total_co2, passed_green, passed_yellow]], 
-                columns=["step", "reward", "queue_length", "avg_speed", "throughput", "total_co2", "passed_green", "passed_yellow"]
-            )
+            # Prepare data row
+            row = [self.num_timesteps, reward, queue_length, avg_speed, throughput, total_co2, passed_green, passed_yellow]
+            for tls_id in self.tls_ids:
+                row.append(junction_queues.get(tls_id, 0.0))
+            
+            new_data = pd.DataFrame([row])
             try:
                 new_data.to_csv(self.log_file, mode='a', header=False, index=False)
             except Exception as e:
@@ -58,13 +68,17 @@ def main():
     print(f"Found traffic lights: {tls_ids}")
     
     num_intersections = len(tls_ids)
-    if num_intersections > 1:
-        edge_index = torch.tensor([
-            [i for i in range(num_intersections - 1)] + [i+1 for i in range(num_intersections - 1)],
-            [i+1 for i in range(num_intersections - 1)] + [i for i in range(num_intersections - 1)]
-        ], dtype=torch.long)
+    
+    # Dynamically build the GAT edge index based on actual road connections
+    graph_edges = sumo_utils.get_network_graph(tls_ids)
+    if graph_edges:
+        # Convert list of tuples to [2, E] tensor
+        from_nodes, to_nodes = zip(*graph_edges)
+        edge_index = torch.tensor([from_nodes, to_nodes], dtype=torch.long)
     else:
-        edge_index = torch.tensor([[0], [0]], dtype=torch.long)
+        # Fallback to self-loops if no connections are found
+        edge_index = torch.tensor([[i for i in range(num_intersections)], 
+                                    [i for i in range(num_intersections)]], dtype=torch.long)
     
     num_intersections = len(tls_ids)
     
@@ -87,7 +101,7 @@ def main():
     model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, 
                 learning_rate=config.LEARNING_RATE, verbose=1)
     
-    callback = DashboardCallback()
+    callback = DashboardCallback(tls_ids=tls_ids)
     print(f"Starting training for {config.TOTAL_TIMESTEPS} timesteps...")
     import traceback
     try:

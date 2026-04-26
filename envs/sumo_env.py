@@ -91,7 +91,7 @@ class SumoGATEnv(gym.Env):
                 
                 # Fetch queue length to show WHY it switched
                 state = sumo_utils.get_intersection_state(tls_id)
-                log_msg = f"[SIGNAL CHANGED] Maintained Previous Phase for: {duration} Seconds | Current Cars Waiting: {state['queue_length']}\n"
+                log_msg = f"[Junction: {tls_id}] SIGNAL CHANGED | Maintained Phase for: {duration}s | Cars Waiting: {state['queue_length']}\n"
                 print(log_msg.strip())
                 with open("signal_changes.txt", "a") as f:
                     f.write(log_msg)
@@ -131,12 +131,18 @@ class SumoGATEnv(gym.Env):
         
         total_queue = sum(obs[i*config.OBSERVATION_SPACE_DIM] for i in range(self.num_intersections))
         
+        # Collect individual junction queues for multi-agent logging
+        junction_queues = {}
+        for i, tls_id in enumerate(self.tls_ids):
+            junction_queues[tls_id] = float(obs[i * config.OBSERVATION_SPACE_DIM])
+            
         terminated = self.step_count >= config.MAX_STEPS
         truncated = False
         info = {
             "total_queue": total_queue,
             "passed_green": self.green_pass_count,
-            "passed_yellow": self.yellow_pass_count
+            "passed_yellow": self.yellow_pass_count,
+            "junction_queues": junction_queues
         }
         
         return obs, reward, terminated, truncated, info

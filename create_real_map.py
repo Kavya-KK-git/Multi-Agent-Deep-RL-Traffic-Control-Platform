@@ -7,7 +7,7 @@ def download_osm_map(bbox, filename="salem_map.osm"):
     min_lat, min_lon, max_lat, max_lon = bbox
     
     print(f"Downloading Salem Real Map Data from OpenStreetMap...")
-    print(f"Location: Five Roads Junction, Salem (BBox: {bbox})")
+    print(f"Location: Salem Area (BBox: {bbox})")
     
     osm_url = f"https://api.openstreetmap.org/api/0.6/map?bbox={min_lon},{min_lat},{max_lon},{max_lat}"
     
@@ -34,14 +34,12 @@ def generate_sumo_network(osm_file="salem_map.osm", net_file="map.net.xml"):
             "--tls.guess", "true",
             "--tls.guess-signals", "true",
             "--tls.join", "true",
-            "--tls.set", "3622848273",
             "--tls.default-type", "actuated"
         ], check=True)
         print(f"[SUCCESS] Successfully created network file: {net_file}\n")
         return True
     except Exception as e:
         print(f"[ERROR] Failed to convert network: {e}")
-        print("Please ensure SUMO is installed and its 'bin' folder is added to PATH.")
         return False
 
 def generate_traffic_routes(net_file="map.net.xml", route_file="traffic.rou.xml"):
@@ -60,11 +58,11 @@ def generate_traffic_routes(net_file="map.net.xml", route_file="traffic.rou.xml"
             "-n", net_file,
             "-r", route_file,
             "-e", "3600",
-            "-p", "1.0",
+            "-p", "0.5",
             "--vehicle-class", "passenger",
             "--vclass", "passenger",
             "--prefix", "veh",
-            "--min-distance", "50",
+            "--min-distance", "100",
             "--trip-attributes", 'departLane="best" departSpeed="max" departPos="random"'
         ], check=True)
         print(f"[SUCCESS] Successfully generated traffic routes: {route_file}\n")
@@ -74,7 +72,8 @@ def generate_traffic_routes(net_file="map.net.xml", route_file="traffic.rou.xml"
         return False
 
 def setup_salem_map():
-    salem_bbox = (11.6700, 78.1380, 11.6770, 78.1460)
+    # Expanded BBox to cover more junctions in Salem (approx 3km x 3km)
+    salem_bbox = (11.655, 78.125, 11.685, 78.155)
     
     success = download_osm_map(salem_bbox)
     if success:
@@ -82,7 +81,7 @@ def setup_salem_map():
         if success:
             generate_traffic_routes()
             print("🚀 REAL DATASET PREPARATION COMPLETE!")
-            print("The Salem network is now ready. You can start/restart your Streamlit dashboard and begin training the AI on Salem roads.")
+            print("The Salem network is now ready with multiple junctions. You can start training.")
 
 if __name__ == "__main__":
     setup_salem_map()

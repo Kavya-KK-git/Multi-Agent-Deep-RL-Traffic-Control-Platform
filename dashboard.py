@@ -182,6 +182,28 @@ if os.path.exists(log_file):
                 
                 st.altair_chart(chart_r, use_container_width=True)
             
+            # --- NEW GAT MULTI-AGENT SECTION ---
+            st.markdown("<br><h3 style='color: #8b5cf6 !important;'>🧠 GAT Multi-Agent Coordination</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#cbd5e1; font-size:15px;'>The Graph Attention Network (GAT) is currently passing messages between these 3 junctions to prevent bottleneck waves.</p>", unsafe_allow_html=True)
+            
+            # Identify per-junction columns
+            tls_cols = [c for c in df.columns if c.startswith('tls_') and c.endswith('_queue')]
+            
+            if tls_cols:
+                df_gat = df.tail(100).melt(id_vars=['step'], value_vars=tls_cols, var_name='Junction', value_name='Queue')
+                # Make labels prettier
+                df_gat['Junction'] = df_gat['Junction'].str.replace('tls_', 'Agent Junction ').str.replace('_queue', '')
+                
+                chart_gat = alt.Chart(df_gat).mark_line(strokeWidth=3, opacity=0.8).encode(
+                    x=alt.X('step:Q', title="Processing Tick", axis=alt.Axis(grid=False, labelColor='#94a3b8', titleColor='#cbd5e1')),
+                    y=alt.Y('Queue:Q', title="Junction Queue Length", axis=alt.Axis(gridColor='rgba(255,255,255,0.1)', labelColor='#94a3b8', titleColor='#cbd5e1')),
+                    color=alt.Color('Junction:N', scale=alt.Scale(scheme='plasma'))
+                ).properties(height=400).configure_view(strokeWidth=0).configure_axis(domain=False)
+                
+                st.altair_chart(chart_gat, use_container_width=True)
+            else:
+                st.info("Start the simulation to see Multi-Agent junction telemetry.")
+            
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("** Signal Throughput Analytics (Passed on Green vs Yellow)**")
             

@@ -41,7 +41,7 @@ def get_intersection_state(tls_id):
     unique_lanes = set(lanes)
     
     for lane in unique_lanes:
-        queue = traci.lane.getLastStepHaltingNumber(lane)
+        queue = traci.lane.getLastStepVehicleNumber(lane)
         occupancy = traci.lane.getLastStepOccupancy(lane)
         
         total_queue_length += queue
@@ -97,3 +97,30 @@ def get_global_stats():
     except Exception:
         # Fallback if traci is not ready or fails
         return {"throughput": 0, "avg_speed": 0.0, "total_co2": 0.0}
+
+def get_network_graph(tls_ids):
+    """
+    Analyzes the road network to find direct connections between traffic lights.
+    Returns a list of tuples (from_idx, to_idx) representing edges in the GAT graph.
+    """
+    net = sumolib.net.readNet(SUMO_NET_FILE)
+    tls_to_idx = {tls_id: i for i, tls_id in enumerate(tls_ids)}
+    edges = []
+    
+    for tls_id in tls_ids:
+        node = net.getNode(tls_id)
+        # Check all paths leaving this intersection
+        for out_edge in node.getOutgoing():
+            # Follow the road to see if it reaches another traffic light
+            # We look at the immediate next node or the one after (basic connectivity)
+            target = out_edge.getToNode()
+            if target.getID() in tls_to_idx:
+                edges.append((tls_to_idx[tls_id], tls_to_idx[target.getID()]))
+            else:
+                # 2-hop check for junctions that are joined or have intermediate nodes
+                for next_out in target.getOutgoing():
+                    if next_out.getToNode().getID() in tls_to_idx:
+                        edges.append((tls_to_idx[tls_id], tls_to_idx[next_out.getToNode().getID()]))
+    
+    # Return as unique list of edges
+    return list(set(edges))
