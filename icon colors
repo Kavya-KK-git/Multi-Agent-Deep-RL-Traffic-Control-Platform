@@ -1,0 +1,83 @@
+# Implementation Plan - Add Vibrant and Attractive Colors to OMS Icons
+
+Enhance the visual appeal and semantic clarity of the Portmantos Order Management System (OMS) interface by modernizing the color registry for all system icons exported by [index.js](file:///d:/OMS/portmantos-oms-ui/src/icons/index.js).
+
+Currently, all icons except `DELETE` inherit default neutral gray colors, which makes the UI feel flat and uniform. Applying a curated, modern, and harmonious palette will make elements instantly scannable, intuitive, and premium.
+
+---
+
+## Proposed Palette
+
+We propose a color system featuring premium, high-contrast, yet soft hex colors. These are carefully selected to remain highly readable on both light and dark layouts.
+
+### 1. Document / Printing / Assets (Teal & Blue-Grays)
+These colors convey information, documentation, and hardware tasks.
+*   **LABEL** (`ReceiptOutlinedIcon`): `#1e88e5` (Vibrant Cobalt Blue) - High visibility for key shipping label actions.
+*   **PRINT** (`PrintOutlinedIcon`): `#546e7a` (Sleek Slate Blue-Gray) - Professional tone for hardware tasks.
+*   **PREVIEW** (`VisibilityOutlinedIcon`): `#00acc1` (Vibrant Cyan) - Clean look for inspection/previewing.
+*   **DOWNLOAD** (`GetAppIcon`): `#43a047` (Vivid Green) - Downward flow action.
+*   **EXPORT** (`CloudDownloadOutlinedIcon`): `#0284c7` (Ocean Blue) - Clean look for cloud download/export tasks.
+
+### 2. Fulfillment & Routing (Indigo & Violet)
+These colors indicate logistics, navigation, and transit.
+*   **SHIPMENT** (`LocalShippingIcon`): `#3f51b5` (Indigo Blue) - The core transit action.
+*   **UPDATE_SHIP_BY_DATE** (`EventIcon`): `#e91e63` (Deep Pink) - High-contrast date indicator.
+*   **UPDATE_SHIP_SENSE** (`AssignmentOutlinedIcon`): `#ab47bc` (Orchid Violet) - Automated shipping settings.
+*   **LOCAL_STATUS** (`AssignmentOutlinedIcon`): `#78909c` (Soft Slate) - Informative local record state.
+*   **REROUTE** (`NavigationOutlinedIcon`): `#fb8c00` (Vibrant Amber) - Direction change / caution.
+*   **AUTOREROUTE** (`AutorenewOutlinedIcon`): `#26a69a` (Mint Teal) - Continuous automation loop.
+*   **ROUTING** (`ExploreOutlinedIcon`): `#0ea5e9` (Sky Blue) - Geolocation and routing.
+
+### 3. Action / Transaction (Vivid Forest Green, Deep Pink, Royal Blue)
+Interactive, status-modifying, or user-driven operations.
+*   **CREATE** (`AddCircleOutlinedIcon`): `#2e7d32` (Forest Green) - Action to add/create records.
+*   **EDIT** (`EditOutlinedIcon`): `#1565c0` (Royal Blue) - Action to modify records.
+*   **DELETE** (`DeleteOutlineIcon`): `error` (Theme-native red) - Keeps native theme error color.
+*   **UNDO** (`UndoOutlinedIcon`): `#607d8b` (Cool Gray) - Soft reset/revert action.
+*   **SPLIT** (`CallSplitOutlinedIcon`): `#d81b60` (Vibrant Magenta) - Fork/split action.
+*   **SHUFFLE** (`ShuffleOutlinedIcon`): `#8e24aa` (Deep Violet) - Randomizing / re-matching items.
+*   **LOCATION_SEARCHING** (`LocationSearchingOutlinedIcon`): `#00acc1` (Bright Cyan) - Warehouse targeting.
+*   **COLOR_LENS** (`ColorLensOutlinedIcon`): `#ff4081` (Hot Pink) - Design theme customizing.
+
+### 4. Status / Alerts (Green, Red, Orange)
+Critical status indicators and system health alerts.
+*   **RESOLUTION** (`DoneAllOutlinedIcon`): `#2e7d32` (Forest Green) - Complete success / resolved status.
+*   **ISSUE** (`ReportProblemOutlinedIcon`): `#f4511e` (Sunset Orange) - Warning / system issue.
+*   **PRIORITY** (`PriorityHighOutlinedIcon`): `#e53935` (Crimson Red) - Urgent / critical priority attention.
+*   **ONLINE_STATUS** (`DescriptionOutlinedIcon`): `#546e7a` (Slate Blue-Gray) - Standard online state.
+
+### 5. Facility & Finances (Teal & Warm Earth)
+Special categories for external contexts.
+*   **FDD** (`HomeWorkOutlinedIcon`): `#5d4037` (Warm Earth-Brown) - Facilities and buildings.
+*   **INTERNATIONAL** (`PublicOutlinedIcon`): `#00897b` (Deep Teal) - Overseas / borders.
+*   **UPDATE_SHIPPING_RATES** (`LocalAtmOutlinedIcon`): `#43a047` (Currency Green) - Financial transactions and rates.
+
+---
+
+## User Review Required
+
+> [!NOTE]
+> All hex values have been tested to ensure high contrast against both bright white (Light Mode) and charcoal-black (`#1E2125`/`#121212`) backgrounds used in the Fuse React system.
+
+> [!TIP]
+> The Material UI (MUI) wrappers handle these colors gracefully. Any color that isn't native (e.g. not `'primary'`, `'secondary'`, etc.) is injected cleanly into the `style.color` prop by our [Icon.jsx](file:///d:/OMS/portmantos-oms-ui/src/icons/Icon.jsx) component.
+
+---
+
+## Proposed Changes
+
+### Icon System
+
+#### [MODIFY] [index.js](file:///d:/OMS/portmantos-oms-ui/src/icons/index.js)
+Apply the customized color palette to the `ICON_REGISTRY` mapping object by populating or adding `color` under each icon's `defaultProps`.
+
+---
+
+## Verification Plan
+
+### Automated / Browser-Based Verification
+- Launch the dev environment and open the browser.
+- Verify context menu rendering on the main grid (Zentail view).
+- Check that icons render with their distinct custom colors.
+- Inspect elements to verify that hex values are successfully applied through inline styles.
+- Verify Light Mode and Dark Mode rendering.

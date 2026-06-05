@@ -13,6 +13,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+from auth import init_auth, logout_button
+
+# Enforce authentication - execution stops here if not logged in
+init_auth()
+
+
+
 st.markdown("""
 <style>
     /* Hide top right Streamlit menus */
@@ -85,8 +92,6 @@ st.markdown("""
         text-align: center;
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
     /* Target second column button for Stop */
     div[data-testid="column"]:nth-of-type(2) button {
         background: linear-gradient(135deg, #ef4444, #b91c1c);
@@ -98,6 +103,11 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Top right logout button
+_, logout_col = st.columns([12, 1])
+with logout_col:
+    logout_button()
 
 st.markdown("""
 <div class="hero-header">
@@ -119,6 +129,7 @@ with colB:
             del st.session_state.train_process
         else:
             st.warning("No tracking process found.")
+
 
 st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
 
